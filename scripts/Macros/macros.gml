@@ -1,0 +1,16 @@
+#macro DRAW_OFFSET 8
+#macro MAX_HEIGHT 4
+#macro GRID_SCALE 4
+#macro DIAGONAL_COST 1.4
+#macro HEIGHT_COST 1
+
+#macro GUI_DEPTH -10000
+#macro PARTICLE_DEPTH -500
+
+#macro MOB_LAND 0
+#macro MOB_WATER 1
+#macro MOB_GEV 2
+#macro MOB_AIR 3
+
+#macro EQUALS 187
+#macro SUBTRACT 189
