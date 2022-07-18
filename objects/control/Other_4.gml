@@ -3,11 +3,8 @@ play_on = false;
 if (!instance_exists(view_control)) {
 	instance_create_depth(x,y,0,view_control);
 }
-if (!instance_exists(cursor)) {
-	instance_create_depth(x,y,0,cursor);
-}
-//if (!instance_exists(grid_control)) {
-//	instance_create_depth(x,y,0,grid_control);
+//if (!instance_exists(cursor)) {
+//	instance_create_depth(x,y,0,cursor);
 //}
 play_on = true;
 //set_turn_order();

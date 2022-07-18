@@ -1,5 +1,5 @@
 /// @description Follow the cursor
-if (instance_exists(cursor)) {
+//if (instance_exists(cursor)) {
 	// Zoom in and out
 	zoom = clamp(zoom + (((mouse_wheel_down() - mouse_wheel_up())) * zoom_rate), zoom_min, zoom_max);
 	
@@ -14,8 +14,9 @@ if (instance_exists(cursor)) {
 	}
 	
 	// Cursor control
-	var mx = cursor.x;
-	var my = cursor.y;
+	//var mx = cursor.x;
+	//var my = cursor.y;
+	var mx = mouse_x, my = mouse_y;
 	var dw = zoom * start_width/2 - move_margin;
 	var dh = zoom * start_height/2 - move_margin;
 	
@@ -36,16 +37,16 @@ if (instance_exists(cursor)) {
 	}
 	
 	// WASD
-	var up = keyboard_check(key_bindings.up),
-		down = keyboard_check(key_bindings.down),
-		left = keyboard_check(key_bindings.left),
-		right = keyboard_check(key_bindings.right);
+	var up = keyboard_check(keybindings.up),
+		down = keyboard_check(keybindings.down),
+		left = keyboard_check(keybindings.left),
+		right = keyboard_check(keybindings.right);
 	
 	var mv = -up + down, mh = -left + right;
 	target_x += mh * move_speed;
 	target_y += mv * move_speed;
 	
-	var r = keyboard_check_pressed(key_bindings.reset);
+	var r = keyboard_check_pressed(keybindings.reset);
 	if (r) {
 		zoom = zoom_start;
 		target_x = start_width / 2;
@@ -78,4 +79,4 @@ if (instance_exists(cursor)) {
 	
 	// Update view position
 	camera_set_view_pos(view_camera[0], new_x, new_y);
-}
+//}

@@ -17,9 +17,9 @@ if (monitorw <= 1920/2 && monitorh <= 1080/2) {
 }
 surface_resize(application_surface, monitorw / wmult, monitorh / hmult);
 display_set_gui_maximize();//monitorw / 2, monitorh / 2);
-window_set_fullscreen(true);
-//window_set_cursor(cr_none);
-//cursor_sprite = crosshairs_sp;
+//window_set_fullscreen(true);
+window_set_cursor(cr_none);
+cursor_sprite = cursor_sp;
 #endregion
 
 #region Audio Setup
@@ -37,17 +37,8 @@ room_return = room;
 globalvar player_stats;
 //player_stats = new player_stats_struct();
 
-globalvar key_bindings;
-/*
-#macro UP 0
-#macro LEFT 1
-#macro DOWN 2
-#macro RIGHT 3
-#macro PRIMARY 4
-#macro SECONDARY 5
-#macro ACTIVE 6
-*/
-key_bindings = new binding_struct();
+globalvar keybindings;
+keybindings = new binding_struct();
 
 globalvar in_combat, in_combat_timer;
 in_combat = false;
