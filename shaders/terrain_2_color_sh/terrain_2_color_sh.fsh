@@ -14,10 +14,13 @@ void main()
 {
 	float heightRatio = texture2D( gm_BaseTexture, v_vTexcoord ).r; // r = b = g
 	float isWater = float(heightRatio < ratioWater);
-	vec4 color = vec4(1);
-	heightRatio = clamp((heightRatio-ratioWater)/(1.0-ratioWater), 0.0, 1.0);
+	float ratioLand = max(0.1, 1.0-ratioWater);
+	heightRatio = clamp((heightRatio-ratioWater)/ratioLand, 0.0, 1.0);
 	vec4 heightColor = mix(color1, color2, heightRatio);
-	color = mix(heightColor, colorWater, isWater);
+	vec4 color = mix(heightColor, colorWater, isWater);
 	
-    gl_FragColor = mix(color, color * texture2D( gm_BaseTexture, v_vTexcoord ), .8);
+	float waterBase = isWater * ratioLand * 0.5;
+	vec4 heightmapShade = texture2D( gm_BaseTexture, v_vTexcoord ) + waterBase;
+	
+    gl_FragColor = mix(color, color * heightmapShade, .8);
 }

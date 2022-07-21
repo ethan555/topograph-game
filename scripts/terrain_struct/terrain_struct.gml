@@ -42,6 +42,17 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	//static direction_costs = [
 	//	MOVE_COST, DIAGONAL_COST, LONG_COST
 	//];
+	//static directions = [
+	//	// 0 <= i < 4, straight lines
+	//	new vector2(0, -2), new vector2(-2, 0), new vector2(2, 0), new vector2(0, 2),
+	//	// 4 <= i < 12, slight diagonal
+	//	new vector2(-1, -2), new vector2(1, -2), 
+	//	new vector2(-2, -1), new vector2(2, -1),
+	//	new vector2(-2, 1), new vector2(2, 1),
+	//	new vector2(-1, 2), new vector2(1, 2),
+	//	// 12 <= i < 16, diagonal
+	//	new vector2(-2, -2), new vector2(2, -2), new vector2(-2, 2),new vector2(2, 2)
+	//];
 	
 	function initialize() {
 		cleanup()
@@ -221,7 +232,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		}
 		ds_list_add(path_, vector2_to_world(pointer));
 	}
-	function get_move_cost(index) {
+	function get_direction_cost(index) {
 		if (index < 4) {
 			return MOVE_COST;
 		} else if (index < 8) {
@@ -231,6 +242,15 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		} else if (index < 20) {
 			return FAR_COST;
 		}
+		//if (index < 4) {
+		//	return MOVE_COST * 2;
+		//} else if (index < 12) {
+		//	return FAR_COST;
+		////} else if (index < 12) {
+		////	return LONG_COST;
+		//} else if (index < 20) {
+		//	return DIAGONAL_COST * 2;
+		//}
 	}
 	function get_unsafe_cell(x_, y_) {
 		var vec2 = snap(x_, y_);
@@ -238,13 +258,26 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		var cell = get_unsafe(xs, ys);
 		return cell
 	}
+	function get_move_cost(current_cell, neighbor, direction_index, mobility_type, mobility_cost) {
+		var move_cost = get_direction_cost(direction_index);
+		if (mobility_type == MOB_LAND && neighbor.height < 0) return -1;
+		if (mobility_type == MOB_WATER && neighbor.height >= 0) return -1;
+		if (mobility_type == MOB_LAND) {
+			// Only care about going uphill
+			var height_difference = max(0, neighbor.height - current_cell.height);
+			var move_height_cost = power(mobility_cost * HEIGHT_COST * height_difference, HEIGHT_POWER);
+			move_cost = move_cost + move_height_cost;
+		}
+		return move_cost;
+	}
 	function get_path(x1_, y1_, x2_, y2_, mobility_cost_, mobility_type_) {
 		// Snap coordinates to grid, find starting cell
 		var cell1 = get_unsafe_cell(x1_, y1_);
-		if (cell1 == -1) return -1;
+		if (cell1 == -1) return noone;
 		var cell2 = get_unsafe_cell(x2_, y2_);
-		if (cell2 == -1) return -1;
+		if (cell2 == -1) return noone;
 		if (!cell1.free || !cell2.free) return -1;
+		if (cell1.equals(cell2)) return -1;
 		// Init cells
 		init_pathfinding();
 		cell1.visited = true;
@@ -258,7 +291,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 			// Limit to 20k iterations of search
 			if (iterations > ITERATION_LIMIT) {
 				show_debug_message("Iteration limit exceeded");
-				break;
+				return noone;
 			}
 			for (var i = 0; i < direction_number; ++i) {
 				var neighbor_vector = directions[i];
@@ -267,13 +300,19 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 				
 				if (neighbor.visited || !neighbor.free) continue;
 				
-				var move_cost = get_move_cost(i);
-				if (mobility_type_ == MOB_LAND && neighbor.height < 0) continue;
-				if (mobility_type_ == MOB_WATER && neighbor.height >= 0) continue;
-				if (mobility_type_ == MOB_LAND) {
-					move_cost = move_cost + mobility_cost_ * HEIGHT_COST * max(0, neighbor.height - current_cell.height);
+				//var move_cost = get_direction_cost(i);
+				//if (mobility_type_ == MOB_LAND && neighbor.height < 0) continue;
+				//if (mobility_type_ == MOB_WATER && neighbor.height >= 0) continue;
+				//if (mobility_type_ == MOB_LAND) {
+				//	move_cost = move_cost + mobility_cost_ * HEIGHT_COST * max(0, neighbor.height - current_cell.height);
+				//}
+				//var neighbor_cost = move_cost + current_cell.visited_cost;
+				var move_cost = get_move_cost(current_cell, neighbor, i, mobility_type_, mobility_cost_);
+				if (move_cost < 0) {
+					neighbor.visited = true;
+					continue;
 				}
-				var neighbor_cost = move_cost + current_cell.visited_cost;
+				var neighbor_cost = current_cell.visited_cost + move_cost;
 				neighbor.parent = current_cell;
 				neighbor.visited_cost = neighbor_cost;
 				neighbor.visited = true;
@@ -299,7 +338,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		// Ensure no shenanigans
 		if (speed_ < 1 or mobility_type_ < 0 or mobility_type_ > MOB_AIR) {
 			show_debug_message("Invalid speed or mobility type");
-			return -1;
+			return noone;
 		}
 		// Get starting cell
 		var cell1 = get_unsafe_cell(x1_, y1_);
@@ -322,7 +361,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 				if (mobility_type_ == MOB_LAND && neighbor.height < 0) continue;
 				if (mobility_type_ == MOB_WATER && neighbor.height >= 0) continue;
 				
-				var move_cost = get_move_cost(i);
+				var move_cost = get_direction_cost(i);
 				if (mobility_type_ == MOB_LAND) {
 					move_cost = move_cost + mobility_cost_ * HEIGHT_COST * max(0, neighbor.height - current_cell.height);
 				}

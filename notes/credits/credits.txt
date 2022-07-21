@@ -1,3 +1,5 @@
 Wilbur Terrain Generator
+Fun with Wilbur: http://www.fracterra.com/FunWithWilburVol1/index.html
 GIMP
-GIMP Contour Map Generator - Zach
+GIMP Contour Map Generator - Zach https://www.cartographersguild.com/showthread.php?t=25929
+Natural paths on terrains blog post: https://www.gamedeveloper.com/programming/creating-natural-paths-on-terrains-using-pathfinding
