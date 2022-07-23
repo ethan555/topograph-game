@@ -58,7 +58,7 @@ globalvar turn_order;
 init_particles();
 globalvar part_emitter;
 part_emitter = part_emitter_create(part_system);
-//draw_set_font(font_0);
+draw_set_font(display_font);
 
 //if (!instance_exists(view_control)) {
 //	instance_create_depth(x,y,0,view_control);

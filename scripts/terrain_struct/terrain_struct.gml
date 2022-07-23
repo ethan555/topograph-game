@@ -12,6 +12,7 @@ function cell_struct(x_, y_, height_, free_) : vector2(x_, y_) constructor {
 	parent = noone;
 	visited = false;
 	visited_cost = 0;
+	heuristic_value = 0;
 	
 	function get_vector() {
 		return new vector2(x, y);
@@ -27,32 +28,52 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	scale = scale_;
 	terrain_grid = noone;
 	
-	static directions = [
-		// up down right left, <4
-		new vector2(0, -1), new vector2(-1, 0), new vector2(1, 0), new vector2(0, 1),
-		// diagonal, 4 <= i < 8
-		new vector2(-1, -1), new vector2(-1, 1), new vector2(1, -1), new vector2(1, 1),
-		// long, 8 <= i < 12
-		//new vector2(0, -2), new vector2(-2, 0), new vector2(2, 0), new vector2(0, 2),
-		// far, 12 <= i < 20
-		new vector2(-1, -2), new vector2(1, -2),
-		new vector2(-2, -1), new vector2(2, -1), new vector2(-2, 1), new vector2(2, 1),
-		new vector2(-1, 2), new vector2(1, 2)
-	];
-	//static direction_costs = [
-	//	MOVE_COST, DIAGONAL_COST, LONG_COST
-	//];
-	//static directions = [
-	//	// 0 <= i < 4, straight lines
-	//	new vector2(0, -2), new vector2(-2, 0), new vector2(2, 0), new vector2(0, 2),
-	//	// 4 <= i < 12, slight diagonal
-	//	new vector2(-1, -2), new vector2(1, -2), 
-	//	new vector2(-2, -1), new vector2(2, -1),
-	//	new vector2(-2, 1), new vector2(2, 1),
-	//	new vector2(-1, 2), new vector2(1, 2),
-	//	// 12 <= i < 16, diagonal
-	//	new vector2(-2, -2), new vector2(2, -2), new vector2(-2, 2),new vector2(2, 2)
-	//];
+	pathfinding_type = 0; // 0 = adjacent, 1 = adj. with longs, 2 = longs
+	
+	cell_cost_max = 0;
+	cell_heuristic_max = 0;
+	cell_score_min = 1000000000;
+	cell_score_max = 0;
+	debug_drawn = false;
+	
+	static directions = -1;
+	switch (pathfinding_type) {
+		case 0:
+			directions = [
+				// up down right left, <4
+				new vector2(0, -1), new vector2(-1, 0), new vector2(1, 0), new vector2(0, 1),
+				// diagonal, 4 <= i < 8
+				new vector2(-1, -1), new vector2(-1, 1), new vector2(1, -1), new vector2(1, 1)
+			];
+			break;
+		case 1:
+			directions = [
+				// up down right left, <4
+				new vector2(0, -1), new vector2(-1, 0), new vector2(1, 0), new vector2(0, 1),
+				// diagonal, 4 <= i < 8
+				new vector2(-1, -1), new vector2(-1, 1), new vector2(1, -1), new vector2(1, 1),
+				// long, 8 <= i < 12
+				//new vector2(0, -2), new vector2(-2, 0), new vector2(2, 0), new vector2(0, 2),
+				// far, 12 <= i < 20
+				new vector2(-1, -2), new vector2(1, -2),
+				new vector2(-2, -1), new vector2(2, -1), new vector2(-2, 1), new vector2(2, 1),
+				new vector2(-1, 2), new vector2(1, 2)
+			];
+			break;
+		case 2:
+			directions = [
+				// 0 <= i < 4, straight lines
+				new vector2(0, -2), new vector2(-2, 0), new vector2(2, 0), new vector2(0, 2),
+				// 4 <= i < 12, slight diagonal
+				new vector2(-1, -2), new vector2(1, -2), 
+				new vector2(-2, -1), new vector2(2, -1),
+				new vector2(-2, 1), new vector2(2, 1),
+				new vector2(-1, 2), new vector2(1, 2),
+				// 12 <= i < 16, diagonal
+				new vector2(-2, -2), new vector2(2, -2), new vector2(-2, 2),new vector2(2, 2)
+			];
+			break;
+	}
 	
 	function initialize() {
 		cleanup()
@@ -202,24 +223,36 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	path = ds_list_create();
 	
 	function init_pathfinding() {
+		debug_drawn = false;
+		cell_cost_max = 0;
+		cell_heuristic_max = 0;
+		cell_score_min = 1000000000;
+		cell_score_max = 0;
 		for (var r = 0; r < width; ++r) {
 		    for (var c = 0; c < length; ++c) {
 				var cell = terrain_grid[# r, c];
 				cell.visited = false;
 				cell.visited_cost = 0;
+				cell.heuristic_value = 0;
 				cell.parent = noone;
 			}
 		}
 		ds_list_clear(path);
 	};
 	
-	function heuristic(x1, y1, x2, y2) {
-		var dist = point_distance(x1, y1, x2, y2);
-		var value = power(dist, HEURISTIC_POWER);
+	function heuristic(x1, y1, x2, y2, h1, h2) {
+		//var dist = point_distance(x1, y1, x2, y2);
+		var hd1 = min(h1, h2);
+		var dist = point_distance_3d(x1, y1, hd1, x2, y2, h2);
+		var dist_heuristic = power(dist, HEURISTIC_POWER);
+		//var height_diff = max(0, h2 - h1);
+		//var height_heuristic = power(height_diff, HEURISTIC_HEIGHT_POWER);
+		//var value = dist_heuristic + height_heuristic;
+		var value = dist_heuristic;
 		return value;
 	}
 	function cell_heuristic(a, b) {
-		return heuristic(a.x, a.y, b.x, b.y);
+		return heuristic(a.x, a.y, b.x, b.y, a.height, b.height);
 	}
 	function vector2_to_world(v2) {
 		return new vector2(v2.x*GRID_SCALE+x+GRID_SCALE/2, v2.y*GRID_SCALE+y+GRID_SCALE/2);
@@ -233,24 +266,30 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		ds_list_add(path_, vector2_to_world(pointer));
 	}
 	function get_direction_cost(index) {
-		if (index < 4) {
-			return MOVE_COST;
-		} else if (index < 8) {
-			return DIAGONAL_COST;
-		//} else if (index < 12) {
-		//	return LONG_COST;
-		} else if (index < 20) {
-			return FAR_COST;
+		switch(pathfinding_type) {
+			case 0:
+			case 1:
+				if (index < 4) {
+					return MOVE_COST;
+				} else if (index < 8) {
+					return DIAGONAL_COST;
+				//} else if (index < 12) {
+				//	return LONG_COST;
+				} else if (index < 20) {
+					return FAR_COST;
+				}
+				break;
+			case 2:
+				if (index < 4) {
+					return MOVE_COST * 2;
+				} else if (index < 12) {
+					return FAR_COST;
+				//} else if (index < 12) {
+				//	return LONG_COST;
+				} else if (index < 20) {
+					return DIAGONAL_COST * 2;
+				}
 		}
-		//if (index < 4) {
-		//	return MOVE_COST * 2;
-		//} else if (index < 12) {
-		//	return FAR_COST;
-		////} else if (index < 12) {
-		////	return LONG_COST;
-		//} else if (index < 20) {
-		//	return DIAGONAL_COST * 2;
-		//}
 	}
 	function get_unsafe_cell(x_, y_) {
 		var vec2 = snap(x_, y_);
@@ -281,6 +320,8 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		// Init cells
 		init_pathfinding();
 		cell1.visited = true;
+		cell1.visited_cost = 0;
+		cell1.heuristic_value = cell_heuristic(cell1, cell2);
 		
 		// Do the magic
 		var current_cell = cell1;
@@ -313,14 +354,23 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 					continue;
 				}
 				var neighbor_cost = current_cell.visited_cost + move_cost;
+				var neighbor_heuristic = cell_heuristic(neighbor, cell2);
 				neighbor.parent = current_cell;
 				neighbor.visited_cost = neighbor_cost;
+				neighbor.heuristic_value = neighbor_heuristic;
 				neighbor.visited = true;
 				
-				var neighbor_score = neighbor_cost + cell_heuristic(neighbor, cell2);
+				var neighbor_score = neighbor_cost + neighbor_heuristic;
+				
+				cell_cost_max = max(neighbor_cost, cell_cost_max);
+				cell_heuristic_max = max(neighbor_heuristic, cell_heuristic_max);
+				cell_score_min = min(neighbor_score, cell_score_min);
+				cell_score_max = max(neighbor_score, cell_score_max);
+				
 			    ds_priority_add(pathfinder, neighbor, neighbor_score);
 			}
 			if (ds_priority_size(pathfinder) > 0) {
+				// Find neighbor cell with lowest score (lowest cost, lowest distance to target)
 				current_cell = ds_priority_delete_min(pathfinder);
 				++iterations;
 			} else {
@@ -469,9 +519,9 @@ function terrain_map_struct(
 		for (var r = 0; r < width; ++r) {
 		    for (var c = 0; c < length; ++c) {
 				var color_value = surface_getpixel(terrain_surface, r, c);
-				var height_ratio = color_get_red(color_value);
+				var height_ratio = color_get_red(color_value) / 255;
 				var is_water = height_ratio < water_ratio;
-				var h = is_water ? 0 : lerp(min_height, max_height, height_ratio);
+				var h = is_water ? -1 : lerp(min_height, max_height, height_ratio);
 				terrain_grid[# r, c] = new cell_struct(r,c,h,true);
 			}
 		}
