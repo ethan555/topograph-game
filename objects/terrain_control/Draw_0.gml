@@ -2,6 +2,28 @@
 
 terrain.draw_terrain_surface();
 draw_mouse_pointer();
+
+if (!ds_map_empty(pathfind_map)) {
+	if (!surface_exists(path_surface)) {
+		path_surface = surface_create(terrain.width, terrain.length);
+	}
+	if (!path_drawn) {
+		surface_set_target(path_surface);
+		draw_clear_alpha(c_white,0);
+		var pathfind_map_cells = ds_map_keys_to_array(pathfind_map);
+		var pathfind_map_length = ds_map_size(pathfind_map);
+		for (var i = 0; i < pathfind_map_length; ++i) {
+		    var pathfind_cell_id = pathfind_map_cells[i];
+			var pathfind_cell = pathfind_map[? pathfind_cell_id];
+			var cell = pathfind_cell.cell;
+			draw_sprite_ext(rectangle_sp,0,cell.x,cell.y,1,1,0,c_white,1);
+		}
+		surface_reset_target();
+		path_drawn = true;
+	}
+	draw_surface_ext(path_surface,0,0,GRID_SCALE,GRID_SCALE,0,c_white,.25);
+}
+
 if (debug) {
 	if (!surface_exists(debug_surface)) {
 		debug_surface = surface_create(terrain.width, terrain.length);

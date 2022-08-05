@@ -1,6 +1,6 @@
 #macro DRAW_OFFSET 8
 #macro MAX_HEIGHT 4
-#macro GRID_SCALE 8
+#macro GRID_SCALE 16 //8
 #macro MOVE_COST 1
 #macro DIAGONAL_COST 1.42
 #macro LONG_COST 2

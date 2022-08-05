@@ -67,6 +67,9 @@ var view_h = camera_get_view_height(view_camera[0]);
 //Get new sizes by interpolating current and target zoomed size
 var new_w = lerp(view_w, zoom * start_width, zoom_lerp_rate);
 var new_h = lerp(view_h, zoom * start_height, zoom_lerp_rate);
+zoom_lerped = lerp(zoom_lerped, zoom, zoom_lerp_rate);
+//var new_w = zoom_lerped * start_width;
+//var new_h = zoom_lerped * start_height;
 	
 //Apply the new size
 camera_set_view_size(view_camera[0], new_w, new_h);

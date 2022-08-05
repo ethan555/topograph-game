@@ -18,3 +18,12 @@ function list_to_array_reverse(ind) {
 	}
 	return array;
 }
+
+function array_to_list(array) {
+	var list = ds_list_create();
+	var length = array_length(array);
+	for (var i = 0; i < length; ++i) {
+	    ds_list_add(list, array[i]);
+	}
+	return list;
+}

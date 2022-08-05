@@ -19,6 +19,12 @@ function cell_struct(x_, y_, height_, free_) : vector2(x_, y_) constructor {
 	};
 }
 
+function cell_pathfind_struct(cell_, parent_, cost_) constructor {
+	cell = cell_;
+	parent = parent_;
+	cost = cost_;
+}
+
 function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	x = x_;
 	y = y_;
@@ -257,6 +263,9 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	function vector2_to_world(v2) {
 		return new vector2(v2.x*GRID_SCALE+x+GRID_SCALE/2, v2.y*GRID_SCALE+y+GRID_SCALE/2);
 	}
+	function vector2_to_world_draw(v2) {
+		return new vector2(v2.x*GRID_SCALE+x, v2.y*GRID_SCALE+y);
+	}
 	function build_path(path_, a, b) {
 		var pointer = b;
 		while(!pointer.equals(a)) {
@@ -309,14 +318,18 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		}
 		return move_cost;
 	}
-	function get_path(x1_, y1_, x2_, y2_, mobility_cost_, mobility_type_) {
+	function get_path_cleanup(pathfinder) {
+		ds_priority_destroy(pathfinder);
+	}
+	function get_path(x1_, y1_, x2_, y2_, mobility_type_, mobility_cost_) {
 		// Snap coordinates to grid, find starting cell
 		var cell1 = get_unsafe_cell(x1_, y1_);
-		if (cell1 == -1) return noone;
+		if (cell1 < 0) return noone;
 		var cell2 = get_unsafe_cell(x2_, y2_);
-		if (cell2 == -1) return noone;
-		if (!cell1.free || !cell2.free) return -1;
-		if (cell1.equals(cell2)) return -1;
+		if (cell2 < 0) return noone;
+		if (!cell1.free || !cell2.free) return noone;
+		if (cell1.equals(cell2)) return noone;
+		if (get_move_cost(cell1,cell2,0,mobility_type_,mobility_cost_) < 0) return noone;
 		// Init cells
 		init_pathfinding();
 		cell1.visited = true;
@@ -332,6 +345,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 			// Limit to 20k iterations of search
 			if (iterations > ITERATION_LIMIT) {
 				show_debug_message("Iteration limit exceeded");
+				get_path_cleanup(pathfinder);
 				return noone;
 			}
 			for (var i = 0; i < direction_number; ++i) {
@@ -374,7 +388,9 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 				current_cell = ds_priority_delete_min(pathfinder);
 				++iterations;
 			} else {
-				break;
+				show_debug_message("No path found");
+				get_path_cleanup(pathfinder);
+				return noone;
 			}
 		}
 		show_debug_message("Iterations: " + string(iterations));
@@ -384,7 +400,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		var path_array = list_to_array_reverse(path);
 		return path_array;
 	};
-	function flood_fill(x1_, y1_, speed_, mobility_cost_, mobility_type_) {
+	function flood_fill(x1_, y1_, speed_, mobility_type_, mobility_cost_) {
 		// Ensure no shenanigans
 		if (speed_ < 1 or mobility_type_ < 0 or mobility_type_ > MOB_AIR) {
 			show_debug_message("Invalid speed or mobility type");
@@ -395,49 +411,126 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		cell1.visited = true;
 		cell1.visited_cost = 0;
 		var pathfinder = ds_queue_create();
-		var cells_visited = ds_list_create();
-		ds_queue_enqueue(pathfinder, cell1);
-		ds_list_add(cells_visited, cell1);
+		var cell_set = ds_map_create();
+		cell_set[? cell1] = 1;
+		var cell_pathfind_map = pathfind_map;
+		ds_map_clear(cell_pathfind_map);
+		var cell1_pathfind = new cell_pathfind_struct(cell1, noone, 0);
+		cell_pathfind_map[? cell1] = cell1_pathfind;
+		//var cell_pathfind_map = ds_map_create();
+		//var cells_visited = ds_list_create();
+		//ds_queue_enqueue(pathfinder, cell1);
+		ds_queue_enqueue(pathfinder, cell1_pathfind);
+		var neighbor_cells = ds_list_create();
+		//ds_list_add(cells_visited, cell1);
 		var direction_number = array_length(directions);
+		var iterations = 0;
 		// Flood fill all possible paths from this point
 		while (ds_queue_size(pathfinder) > 0) {
-			var current_cell = ds_queue_dequeue(pathfinder);
-			ds_list_add(cells_visited, current_cell);
+			//var current_cell = ds_queue_dequeue(pathfinder);
+			var current_cell_pathfind = ds_queue_dequeue(pathfinder);
+			var current_cell = current_cell_pathfind.cell;
+			++iterations;
+			//var cell_pathfind = new cell_pathfind_struct(current_cell, noone, 100000);
+			//ds_list_add(cells_visited, current_cell);
 			for (var i = 0; i < direction_number; ++i) {
 				// Get neighbor
 				var neighbor_vector = directions[i];
 				var neighbor = get_unsafe(current_cell.x + neighbor_vector.x, current_cell.y + neighbor_vector.y);
-				if (neighbor == -1 or neighbor.visited or !neighbor.free) continue;
-				if (mobility_type_ == MOB_LAND && neighbor.height < 0) continue;
-				if (mobility_type_ == MOB_WATER && neighbor.height >= 0) continue;
+				if (neighbor == -1 or !neighbor.free) continue;
 				
-				var move_cost = get_direction_cost(i);
-				if (mobility_type_ == MOB_LAND) {
-					move_cost = move_cost + mobility_cost_ * HEIGHT_COST * max(0, neighbor.height - current_cell.height);
+				
+				
+				var neighbor_pathfind = noone;
+				var neighbor_visited = ds_map_exists(cell_pathfind_map, neighbor)
+				if (neighbor_visited) {
+					neighbor_pathfind = cell_pathfind_map[? neighbor];
+				} else {
+					neighbor_pathfind = new cell_pathfind_struct(neighbor, current_cell, 100000);
 				}
-				var neighbor_cost = move_cost + current_cell.visited_cost;
-				// If neighbor cost is greater than speed, is outside our range
-				if (neighbor_cost > speed_) continue;
 				
-				// Neighbor is worth visiting, mark it and add to queue
-				neighbor.parent = current_cell;
-				neighbor.visited_cost = neighbor_cost;
-				neighbor.visited = true;
-				ds_queue_enqueue(neighbor);
+				var move_cost = get_move_cost(current_cell, neighbor, i, mobility_type_, mobility_cost_);
+					
+				var neighbor_cost = move_cost + current_cell_pathfind.cost;
+					
+				if (neighbor_cost > speed_) {
+					cell_pathfind_map[? neighbor] = neighbor_pathfind;
+					continue;
+				} else {
+					if (neighbor_cost < neighbor_pathfind.cost) {
+						neighbor_pathfind.cost = neighbor_cost;
+						neighbor_pathfind.parent = current_cell;
+					}
+					if (!neighbor_visited) {
+						cell_pathfind_map[? neighbor] = neighbor_pathfind;
+						ds_queue_enqueue(pathfinder, neighbor_pathfind);
+					}
+				}
 				
-				//var neighbor_score = neighbor_cost + cell_heuristic(neighbor, cell2);
-				//ds_priority_add(pathfinder, neighbor, neighbor_score);
+				
+				
+				
+				//if (ds_map_exists(cell_pathfind_map, neighbor)) {
+				//	var neighbor_pathfind = cell_pathfind_map[? neighbor];
+					
+				//	var move_cost = get_move_cost(neighbor, current_cell, i, mobility_type_, mobility_cost_);
+					
+				//	var neighbor_cost = move_cost + neighbor_pathfind.cost;
+					
+				//	if (neighbor_cost > speed_) {
+				//		continue;
+				//	}
+					
+				//	// Cell already calculated, get cost if less than current cost
+					
+				//	if (neighbor_cost < cell_pathfind.cost) {
+				//		cell_pathfind.cost = neighbor_cost;
+				//		cell_pathfind.parent = neighbor;
+				//	}
+					
+				//	//cell_set[? current_cell] = min(cell_set[? current_cell], ;
+				//} else {
+				//	// neighbor not calculated yet
+				//	if (ds_map_exists(cell_set, neighbor)) continue;
+					
+				//	cell_set[? neighbor] = 1;
+				//	ds_list_add(neighbor_cells, neighbor);
+				//	//ds_queue_enqueue(pathfinder, neighbor);
+				//}
 			}
+			//if (cell_pathfind.parent != noone or current_cell == cell1) {
+			//	if (current_cell == cell1) {
+			//		cell_pathfind.cost = 0;
+			//	}
+			//	cell_pathfind_map[? current_cell] = cell_pathfind;
+				
+			//	// Only add neighbors to check if they could be in range
+			//	if (cell_pathfind.cost + 1 <= speed_) {
+			//		var neighbor_cells_count = ds_list_size(neighbor_cells);
+			//		for (var i = 0; i < neighbor_cells_count; ++i) {
+			//			var neighbor_cell = neighbor_cells[| i];
+			//			ds_queue_enqueue(pathfinder, neighbor_cell);
+			//		}
+			//	}
+			//	ds_list_clear(neighbor_cells);
+			//} else {
+			//	delete cell_pathfind;
+			//}
 		}
+		show_debug_message("Iterations:" + string(iterations));
 		ds_queue_destroy(pathfinder);
-		ds_list_destroy(cells_visited);
+		//ds_map_destroy(cell_pathfind_map);
+		ds_map_destroy(cell_set);
+		ds_list_destroy(neighbor_cells);
+		//ds_list_destroy(cells_visited);
+		return cell_pathfind_map;
 	}
 	#endregion
 }
 
 function terrain_map_struct(
 	terrain_sprite_, contour_sprite_, left_, top_, width_, length_,
-	min_height_, max_height_, water_ratio_, color_min_, color_max_, color_water_
+	min_height_, max_height_, water_ratio_, color_min_, color_max_, color_water_, color_value_
 ) : terrain_struct(0, 0, 1, 1, 1, GRID_SCALE) constructor {
 	terrain_sprite = terrain_sprite_;
 	contour_sprite = contour_sprite_;
@@ -454,6 +547,7 @@ function terrain_map_struct(
 	color_min = color_min_;
 	color_max = color_max_;
 	color_water = color_water_;
+	color_value = color_value_;
 	
 	terrain_surface = noone;
 	
@@ -492,6 +586,7 @@ function terrain_map_struct(
 			cw_b = color_get_blue(color_water)/255,
 			cw_a = 1;
 		shader_set_uniform_f(u_colorWater, cw_r, cw_g, cw_b, cw_a);
+		shader_set_uniform_f(u_colorValue, color_value);
 		
 		draw_sprite_part(terrain_sprite,0,left,top,width,length,0,0);
 		shader_reset();
@@ -503,7 +598,9 @@ function terrain_map_struct(
 			draw_terrain();
 		}
 		draw_surface_ext(terrain_surface,x,y,GRID_SCALE,GRID_SCALE,0,c_white,1);
-		//draw_sprite_part_ext(contour_sprite,0,left,top,width,length,x,y,4,4,c_white,.5);
+		if (draw_contour_map) {
+			draw_sprite_part_ext(contour_sprite,0,left,top,width,length,x,y,GRID_SCALE,GRID_SCALE,c_white,contour_map_alpha);
+		}
 	}
 	function initialize() {
 		cleanup()

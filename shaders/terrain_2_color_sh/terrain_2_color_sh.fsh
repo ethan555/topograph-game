@@ -1,5 +1,5 @@
 //
-// Simple passthrough fragment shader
+// Heightmap color shader with water
 //
 varying vec2 v_vTexcoord;
 varying vec4 v_vColour;
@@ -9,6 +9,7 @@ uniform float ratioWater;	// 0 <= r <= 1
 uniform vec4 color1;		// min height color
 uniform vec4 color2;		// max height color
 uniform vec4 colorWater;	// color of water
+uniform float colorValue;
 
 void main()
 {
@@ -21,6 +22,7 @@ void main()
 	
 	float waterBase = isWater * ratioLand * 0.5;
 	vec4 heightmapShade = texture2D( gm_BaseTexture, v_vTexcoord ) + waterBase;
+	float colorValueWater = mix(colorValue, 0.9, isWater);
 	
-    gl_FragColor = mix(color, color * heightmapShade, .8);
+    gl_FragColor = mix(color, color * heightmapShade, colorValueWater);
 }

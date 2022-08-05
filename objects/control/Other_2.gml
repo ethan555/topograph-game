@@ -29,7 +29,7 @@ cursor_sprite = cursor_sp;
 #endregion
 
 #region Room Control
-globalvar room_return, play_on;
+globalvar room_return;
 room_return = room;
 #endregion
 
@@ -46,13 +46,21 @@ in_combat_timer = 0;
 #endregion
 
 #region System Init
-globalvar u_ratioWater, u_color1, u_color2, u_colorWater;
+globalvar u_ratioWater, u_color1, u_color2, u_colorWater, u_colorValue;
 u_ratioWater = shader_get_uniform(terrain_2_color_sh,"ratioWater");
 u_color1 = shader_get_uniform(terrain_2_color_sh,"color1");
 u_color2 = shader_get_uniform(terrain_2_color_sh,"color2");
 u_colorWater = shader_get_uniform(terrain_2_color_sh,"colorWater");
+u_colorValue = shader_get_uniform(terrain_2_color_sh,"colorValue");
 
-globalvar turn_order;
+globalvar draw_contour_map, contour_map_alpha;
+draw_contour_map = false;
+contour_map_alpha = .5;
+
+globalvar turn_manager, turn_order, focused_unit, pathfind_map, path_drawn;
+turn_manager = new turn_manager_struct();
+pathfind_map = ds_map_create();
+focused_unit = noone;
 //turn_order = new turn_list_struct();
 
 init_particles();
