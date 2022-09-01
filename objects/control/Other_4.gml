@@ -3,6 +3,12 @@
 if (!instance_exists(view_control)) {
 	instance_create_depth(x,y,0,view_control);
 }
+
+turn_manager.new_map([
+	new faction_struct(FACTION_PLAYER, c_red, 1),
+	new faction_struct(FACTION_ENEMY, c_green, 1)
+]);
+
 //if (!instance_exists(cursor)) {
 //	instance_create_depth(x,y,0,cursor);
 //}

@@ -53,14 +53,56 @@ u_color2 = shader_get_uniform(terrain_2_color_sh,"color2");
 u_colorWater = shader_get_uniform(terrain_2_color_sh,"colorWater");
 u_colorValue = shader_get_uniform(terrain_2_color_sh,"colorValue");
 
+globalvar focus_color, target_color;
+focus_color = c_white;
+target_color = c_red;
+
+// Outline draw setup
+globalvar outline_surface, outline_texture, texel_width, texel_height,
+	u_outline_color, u_pixel_width, u_pixel_height;
+outline_surface = noone;
+outline_texture = noone;
+texel_width = 1;
+texel_height = 1;
+u_outline_color = shader_get_uniform(outline_border_sh, "outline_color");
+u_pixel_width = shader_get_uniform(outline_border_sh, "pixel_width");
+u_pixel_height = shader_get_uniform(outline_border_sh, "pixel_height");
+
+// Contour map setup
+globalvar u_terrace_number, u_contour_color, u_contour_texel_width, u_contour_texel_height;
+u_terrace_number = shader_get_uniform(terrain_terrace_contour_sh, "terrace_number");
+u_contour_color = shader_get_uniform(terrain_terrace_contour_sh, "contour_color");
+u_contour_texel_width = shader_get_uniform(terrain_terrace_contour_sh, "pixel_width");
+u_contour_texel_height = shader_get_uniform(terrain_terrace_contour_sh, "pixel_height");
+
+// Terrain surfaces
+globalvar terrain_surface, contour_surface, debug_surface, path_surface, fog_surface, sight_surface;
+terrain_surface = noone;
+contour_surface = noone;
+debug_surface = noone;
+path_surface = noone;
+fog_surface = noone;
+sight_surface = noone;
+
 globalvar draw_contour_map, contour_map_alpha;
 draw_contour_map = false;
 contour_map_alpha = .5;
 
-globalvar turn_manager, turn_order, focused_unit, pathfind_map, path_drawn;
+globalvar turn_manager, turn_order, focused_unit, target_unit, target_index,
+	target_units, pathfind_map, path_drawn;
 turn_manager = new turn_manager_struct();
 pathfind_map = ds_map_create();
 focused_unit = noone;
+target_unit = noone;
+target_index = 0;
+target_units = ds_list_create();
+
+//globalvar control_state, control_targets;
+//control_targets = ds_list_create();
+//control_state = C_IDLE;
+
+//globalvar action_icons;
+//action_icons = array_create();
 //turn_order = new turn_list_struct();
 
 init_particles();

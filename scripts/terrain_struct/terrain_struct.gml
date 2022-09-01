@@ -11,7 +11,7 @@ function cell_struct(x_, y_, height_, free_) : vector2(x_, y_) constructor {
 	height = height_;
 	parent = noone;
 	visited = false;
-	visited_cost = 0;
+	cost = 0;
 	heuristic_value = 0;
 	
 	function get_vector() {
@@ -108,6 +108,11 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		return snapped;
 	}
 	
+	function snap_center(x_, y_) {
+		var snapped = snap(x_, y_);
+		return vector2_to_world(snapped);
+	}
+	
 	function outside_raw(x_, y_) {
 		var snapped = snap(x_, y_);
 		return outside(snapped.x, snapped.y);
@@ -128,7 +133,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		if (!outside(snapped.x, snapped.y)) {
 			return terrain_grid[# snapped.x, snapped.y].free;
 		} else {
-			return -1;
+			return noone;
 		}
 	}
 	function get_height_raw(x_, y_) {
@@ -136,7 +141,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		if (!outside(snapped.x, snapped.y)) {
 			return terrain_grid[# snapped.x, snapped.y].height;
 		} else {
-			return -1;
+			return noone;
 		}
 	}
 	function get_raw(x_, y_) {
@@ -144,7 +149,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		if (!outside(snapped.x, snapped.y)) {
 			return terrain_grid[# snapped.x, snapped.y];
 		} else {
-			return -1;
+			return noone;
 		}
 	}
 	function get_free(x_, y_) {
@@ -155,7 +160,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	}
 	function get_unsafe(x_, y_) {
 		if (!inside(x_, y_)) {
-			return -1;
+			return noone;
 		}
 		return get(x_, y_);
 	}
@@ -238,7 +243,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		    for (var c = 0; c < length; ++c) {
 				var cell = terrain_grid[# r, c];
 				cell.visited = false;
-				cell.visited_cost = 0;
+				cell.cost = 0;
 				cell.heuristic_value = 0;
 				cell.parent = noone;
 			}
@@ -308,8 +313,8 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	}
 	function get_move_cost(current_cell, neighbor, direction_index, mobility_type, mobility_cost) {
 		var move_cost = get_direction_cost(direction_index);
-		if (mobility_type == MOB_LAND && neighbor.height < 0) return -1;
-		if (mobility_type == MOB_WATER && neighbor.height >= 0) return -1;
+		if (mobility_type == MOB_LAND && neighbor.height < 0) return noone;
+		if (mobility_type == MOB_WATER && neighbor.height >= 0) return noone;
 		if (mobility_type == MOB_LAND) {
 			// Only care about going uphill
 			var height_difference = max(0, neighbor.height - current_cell.height);
@@ -333,7 +338,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		// Init cells
 		init_pathfinding();
 		cell1.visited = true;
-		cell1.visited_cost = 0;
+		cell1.cost = 0;
 		cell1.heuristic_value = cell_heuristic(cell1, cell2);
 		
 		// Do the magic
@@ -351,7 +356,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 			for (var i = 0; i < direction_number; ++i) {
 				var neighbor_vector = directions[i];
 				var neighbor = get_unsafe(current_cell.x + neighbor_vector.x, current_cell.y + neighbor_vector.y);
-				if (neighbor == -1) continue;
+				if (neighbor < 0) continue;
 				
 				if (neighbor.visited || !neighbor.free) continue;
 				
@@ -361,16 +366,16 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 				//if (mobility_type_ == MOB_LAND) {
 				//	move_cost = move_cost + mobility_cost_ * HEIGHT_COST * max(0, neighbor.height - current_cell.height);
 				//}
-				//var neighbor_cost = move_cost + current_cell.visited_cost;
+				//var neighbor_cost = move_cost + current_cell.cost;
 				var move_cost = get_move_cost(current_cell, neighbor, i, mobility_type_, mobility_cost_);
 				if (move_cost < 0) {
 					neighbor.visited = true;
 					continue;
 				}
-				var neighbor_cost = current_cell.visited_cost + move_cost;
+				var neighbor_cost = current_cell.cost + move_cost;
 				var neighbor_heuristic = cell_heuristic(neighbor, cell2);
 				neighbor.parent = current_cell;
-				neighbor.visited_cost = neighbor_cost;
+				neighbor.cost = neighbor_cost;
 				neighbor.heuristic_value = neighbor_heuristic;
 				neighbor.visited = true;
 				
@@ -400,6 +405,46 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		var path_array = list_to_array_reverse(path);
 		return path_array;
 	};
+	function build_path_flood(to_cell_) {
+		var pointer = to_cell_;
+		var path_ = ds_list_create();
+		while(pointer != noone) {
+			ds_list_add(path_, vector2_to_world(pointer));
+			pointer = pointer.parent;
+		}
+		var path_array = list_to_array_reverse(path_);
+		ds_list_destroy(path_);
+		return path_array;
+	}
+	function check_cell_empty(cell, mobility_type_) {
+		// Ensure cell is empty of units
+		var cell_empty = true;
+		var world_coords = vector2_to_world(cell);
+		var solid_list = ds_list_create();
+		var solid_count = collision_point_list(
+			world_coords.x, world_coords.y, solid_parent,
+			false, true, solid_list, false
+		);
+		for (var i = 0; i < solid_count; ++i) {
+		    var s = solid_list[| i];
+			if (s.state != U_MOVING) {
+				if (mobility_type_ != MOB_AIR and s.mobility_type != MOB_AIR) {
+					// Affected by ground collision
+					cell_empty = false;
+					break;
+				} else {
+					if (mobility_type_ == mobility_type_) {
+						// Affected by air collision
+						cell_empty = false;
+						break;
+					}
+				}
+			}
+		}
+		ds_list_destroy(solid_list);
+		delete world_coords;
+		return cell_empty;
+	}
 	function flood_fill(x1_, y1_, speed_, mobility_type_, mobility_cost_) {
 		// Ensure no shenanigans
 		if (speed_ < 1 or mobility_type_ < 0 or mobility_type_ > MOB_AIR) {
@@ -409,50 +454,51 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		// Get starting cell
 		var cell1 = get_unsafe_cell(x1_, y1_);
 		cell1.visited = true;
-		cell1.visited_cost = 0;
+		cell1.cost = 0;
+		cell1.parent = noone;
 		var pathfinder = ds_queue_create();
 		var cell_set = ds_map_create();
 		cell_set[? cell1] = 1;
 		var cell_pathfind_map = pathfind_map;
 		ds_map_clear(cell_pathfind_map);
-		var cell1_pathfind = new cell_pathfind_struct(cell1, noone, 0);
-		cell_pathfind_map[? cell1] = cell1_pathfind;
-		//var cell_pathfind_map = ds_map_create();
-		//var cells_visited = ds_list_create();
-		//ds_queue_enqueue(pathfinder, cell1);
-		ds_queue_enqueue(pathfinder, cell1_pathfind);
+		
+		cell_pathfind_map[? cell1] = cell1;
+		
+		ds_queue_enqueue(pathfinder, cell1);
 		var neighbor_cells = ds_list_create();
-		//ds_list_add(cells_visited, cell1);
+		
 		var direction_number = array_length(directions);
+		cell_cost_max = 0;
 		var iterations = 0;
+		
 		// Flood fill all possible paths from this point
 		while (ds_queue_size(pathfinder) > 0) {
-			//var current_cell = ds_queue_dequeue(pathfinder);
-			var current_cell_pathfind = ds_queue_dequeue(pathfinder);
-			var current_cell = current_cell_pathfind.cell;
+			var current_cell = ds_queue_dequeue(pathfinder);
+			cell_cost_max = max(cell_cost_max, current_cell.cost);
 			++iterations;
-			//var cell_pathfind = new cell_pathfind_struct(current_cell, noone, 100000);
-			//ds_list_add(cells_visited, current_cell);
+			
 			for (var i = 0; i < direction_number; ++i) {
 				// Get neighbor
 				var neighbor_vector = directions[i];
 				var neighbor = get_unsafe(current_cell.x + neighbor_vector.x, current_cell.y + neighbor_vector.y);
-				if (neighbor == -1 or !neighbor.free) continue;
-				
-				
+				if (neighbor < 0 or !neighbor.free) continue;
+				var neighbor_empty = check_cell_empty(neighbor);
+				if (!neighbor_empty) continue;
 				
 				var neighbor_pathfind = noone;
 				var neighbor_visited = ds_map_exists(cell_pathfind_map, neighbor)
 				if (neighbor_visited) {
 					neighbor_pathfind = cell_pathfind_map[? neighbor];
 				} else {
-					neighbor_pathfind = new cell_pathfind_struct(neighbor, current_cell, 100000);
+					neighbor_pathfind = neighbor;
+					neighbor_pathfind.parent = current_cell;
+					neighbor_pathfind.cost = 100000;
 				}
 				
 				var move_cost = get_move_cost(current_cell, neighbor, i, mobility_type_, mobility_cost_);
-					
-				var neighbor_cost = move_cost + current_cell_pathfind.cost;
-					
+				
+				var neighbor_cost = move_cost + current_cell.cost;
+
 				if (neighbor_cost > speed_) {
 					cell_pathfind_map[? neighbor] = neighbor_pathfind;
 					continue;
@@ -466,74 +512,26 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 						ds_queue_enqueue(pathfinder, neighbor_pathfind);
 					}
 				}
-				
-				
-				
-				
-				//if (ds_map_exists(cell_pathfind_map, neighbor)) {
-				//	var neighbor_pathfind = cell_pathfind_map[? neighbor];
-					
-				//	var move_cost = get_move_cost(neighbor, current_cell, i, mobility_type_, mobility_cost_);
-					
-				//	var neighbor_cost = move_cost + neighbor_pathfind.cost;
-					
-				//	if (neighbor_cost > speed_) {
-				//		continue;
-				//	}
-					
-				//	// Cell already calculated, get cost if less than current cost
-					
-				//	if (neighbor_cost < cell_pathfind.cost) {
-				//		cell_pathfind.cost = neighbor_cost;
-				//		cell_pathfind.parent = neighbor;
-				//	}
-					
-				//	//cell_set[? current_cell] = min(cell_set[? current_cell], ;
-				//} else {
-				//	// neighbor not calculated yet
-				//	if (ds_map_exists(cell_set, neighbor)) continue;
-					
-				//	cell_set[? neighbor] = 1;
-				//	ds_list_add(neighbor_cells, neighbor);
-				//	//ds_queue_enqueue(pathfinder, neighbor);
-				//}
 			}
-			//if (cell_pathfind.parent != noone or current_cell == cell1) {
-			//	if (current_cell == cell1) {
-			//		cell_pathfind.cost = 0;
-			//	}
-			//	cell_pathfind_map[? current_cell] = cell_pathfind;
-				
-			//	// Only add neighbors to check if they could be in range
-			//	if (cell_pathfind.cost + 1 <= speed_) {
-			//		var neighbor_cells_count = ds_list_size(neighbor_cells);
-			//		for (var i = 0; i < neighbor_cells_count; ++i) {
-			//			var neighbor_cell = neighbor_cells[| i];
-			//			ds_queue_enqueue(pathfinder, neighbor_cell);
-			//		}
-			//	}
-			//	ds_list_clear(neighbor_cells);
-			//} else {
-			//	delete cell_pathfind;
-			//}
 		}
 		show_debug_message("Iterations:" + string(iterations));
 		ds_queue_destroy(pathfinder);
-		//ds_map_destroy(cell_pathfind_map);
+		
 		ds_map_destroy(cell_set);
 		ds_list_destroy(neighbor_cells);
-		//ds_list_destroy(cells_visited);
+		
 		return cell_pathfind_map;
 	}
 	#endregion
 }
 
 function terrain_map_struct(
-	terrain_sprite_, contour_sprite_, left_, top_, width_, length_,
-	min_height_, max_height_, water_ratio_, color_min_, color_max_, color_water_, color_value_
+	terrain_sprite_, left_, top_, width_, length_,
+	min_height_, max_height_, water_ratio_, color_min_, color_max_, color_water_, color_value_,
+	terrace_number_, contour_color_
 ) : terrain_struct(0, 0, 1, 1, 1, GRID_SCALE) constructor {
 	terrain_sprite = terrain_sprite_;
-	contour_sprite = contour_sprite_;
+	//contour_sprite = contour_sprite_;
 	left = left_;
 	top = top_;
 	width = width_; // sprite_get_width(terrain_sprite_);
@@ -549,7 +547,10 @@ function terrain_map_struct(
 	color_water = color_water_;
 	color_value = color_value_;
 	
-	terrain_surface = noone;
+	terrace_number = terrace_number_;
+	contour_color = contour_color_;
+	
+	//terrain_surface = noone;
 	
 	if (left < 0 or width > terrain_width or top < 0 or length > terrain_length
 		or width < 1 or length < 1
@@ -564,8 +565,12 @@ function terrain_map_struct(
 		if (surface_exists(terrain_surface)) {
 			surface_free(terrain_surface);
 		}
+		if (surface_exists(contour_surface)) {
+			surface_free(contour_surface);
+		}
 	}
 	function draw_terrain() {
+		// Draw terrain
 		surface_set_target(terrain_surface);
 		
 		shader_set(terrain_2_color_sh);
@@ -592,20 +597,92 @@ function terrain_map_struct(
 		shader_reset();
 		surface_reset_target();
 	}
-	function draw_terrain_surface() {
+	function draw_contour() {
+		// Draw contour map
+		surface_set_target(contour_surface);
+		//var contour_texture = surface_get_texture(contour_surface);
+		
+		//shader_set(terrain_terrace_contour_sh);
+			
+		//var contour_texel_width = texture_get_texel_width(contour_texture);
+		//var contour_texel_height = texture_get_texel_height(contour_texture);
+			
+		//shader_set_uniform_f(u_terrace_number, terrace_number);
+		//var c_r = color_get_red(contour_color)/255,
+		//	c_g = color_get_green(contour_color)/255,
+		//	c_b = color_get_blue(contour_color)/255,
+		//	c_a = 1;
+		//shader_set_uniform_f(u_contour_color, c_r, c_g, c_b, c_a);
+		//shader_set_uniform_f(u_contour_texel_width, contour_texel_width);
+		//shader_set_uniform_f(u_contour_texel_height, contour_texel_height);
+		
+		draw_sprite_part_ext(terrain_sprite,0,left,top,width,length,0,0,CONTOUR_SCALE,CONTOUR_SCALE,c_white,1);
+		//shader_reset();
+		surface_reset_target();
+	}
+	//function init_surface(surface, w, l) {
+	//	var draw_required = false;
+	//	if (!surface_exists(surface)) {
+	//		surface = surface_create(w,l);
+	//		draw_required = true;
+	//	}
+	//	return draw_required
+	//}
+	function init_surfaces() {
+		var draw_required = false;
+		//draw_required = init_surface(terrain_surface, width, length);
 		if (!surface_exists(terrain_surface)) {
 			terrain_surface = surface_create(width,length);
-			draw_terrain();
+			draw_required = true;
 		}
+		
+		//draw_required |= init_surface(contour_surface, width, length);
+		if (!surface_exists(contour_surface)) {
+			contour_surface = surface_create(width,length);
+			draw_required = true;
+		}
+		return draw_required;
+	}
+	function draw_terrain_surface() {
+		var draw_required = false;
+		if (!surface_exists(terrain_surface)) {
+			terrain_surface = surface_create(width,length);
+			draw_required = true;
+		}
+		//init_surface(terrain_surface, width, length);
+		if (draw_required) draw_terrain();
 		draw_surface_ext(terrain_surface,x,y,GRID_SCALE,GRID_SCALE,0,c_white,1);
-		if (draw_contour_map) {
-			draw_sprite_part_ext(contour_sprite,0,left,top,width,length,x,y,GRID_SCALE,GRID_SCALE,c_white,contour_map_alpha);
+	}
+	function draw_terrain_contour_surface() {
+		var draw_required = false;
+		if (!surface_exists(contour_surface)) {
+			contour_surface = surface_create(width*CONTOUR_SCALE,length*CONTOUR_SCALE);
+			draw_required = true;
 		}
+		//init_surface(contour_surface, width*CONTOUR_SCALE, length*CONTOUR_SCALE);
+		if (draw_required) draw_contour();
+		var contour_texture = surface_get_texture(contour_surface);
+		
+		shader_set(terrain_terrace_contour_sh);
+			
+		var contour_texel_width = texture_get_texel_width(contour_texture);
+		var contour_texel_height = texture_get_texel_height(contour_texture);
+			
+		shader_set_uniform_f(u_terrace_number, terrace_number);
+		var c_r = color_get_red(contour_color)/255,
+			c_g = color_get_green(contour_color)/255,
+			c_b = color_get_blue(contour_color)/255,
+			c_a = 1;
+		shader_set_uniform_f(u_contour_color, c_r, c_g, c_b, c_a);
+		shader_set_uniform_f(u_contour_texel_width, contour_texel_width);
+		shader_set_uniform_f(u_contour_texel_height, contour_texel_height);
+		draw_surface_ext(contour_surface,x,y,GRID_SCALE/CONTOUR_SCALE,GRID_SCALE/CONTOUR_SCALE,0,c_white,contour_map_alpha);
+		shader_reset();
 	}
 	function initialize() {
 		cleanup()
 		terrain_grid = ds_grid_create(width,length);
-		terrain_surface = surface_create(width,length);
+		init_surfaces();
 		
 		surface_set_target(terrain_surface);
 		//shader_set(terrain_2_color_sh);

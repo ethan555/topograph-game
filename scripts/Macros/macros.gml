@@ -1,6 +1,27 @@
+// Control States
+#macro C_IDLE 0
+#macro C_ENEMY 1
+#macro C_TARGET 2
+
+// Unit States
+#macro U_STATE_NUMBER 5
+#macro U_IDLE 0
+#macro U_MOVING 1
+#macro U_DONE 2
+#macro U_TARGET 3
+#macro U_ACTION 4
+#macro U_DEATH 5
+
+// Factions
+#macro FACTION_PLAYER 0
+#macro FACTION_ENEMY 1
+
 #macro DRAW_OFFSET 8
 #macro MAX_HEIGHT 4
 #macro GRID_SCALE 16 //8
+#macro FOG_SCALE 8
+#macro SIGHT_EDGE_RADIUS 2
+#macro CONTOUR_SCALE 4
 #macro MOVE_COST 1
 #macro DIAGONAL_COST 1.42
 #macro LONG_COST 2
@@ -12,6 +33,8 @@
 #macro ITERATION_LIMIT 20000
 
 #macro GUI_DEPTH -10000
+#macro UNIT_DEPTH 0
+#macro DUMMY_DEPTH 10
 #macro PARTICLE_DEPTH -500
 
 #macro MOB_LAND 0
