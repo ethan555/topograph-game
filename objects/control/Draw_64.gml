@@ -17,6 +17,42 @@ if (instance_exists(focused_unit)) {
 	//		draw_sprite()
 	//	}
 	//}
+	
+	// Draw targets
+	var target_number = ds_list_size(target_units);
+	for (var i = 0; i < target_number; ++i) {
+	    var target = target_units[| i];
+		var u = target.instance;
+		var hit_chance = target.hit_chance;
+		
+		// Draw sprite
+		var dh = display_get_gui_height();
+		var cx = camera_get_view_x(view_camera[0]), cy = camera_get_view_y(view_camera[0]);
+		var cw = camera_get_view_width(view_camera[0]), ch = camera_get_view_height(view_camera[0]);
+		var dx = u.x - cx,
+			dy = u.y - cy;
+		var dpx = dx / cw, dpy = dy / ch;
+		var drawx = dpx * display_get_gui_width(), drawy = dpy * dh;
+		
+		var scale = 1;
+		draw_sprite_ext(target_sp,0,drawx,drawy,scale,scale,0,c_red,1);
+		
+		// Draw hit chance
+		draw_set_font(display_font);
+		draw_set_halign(fa_center);
+		draw_set_valign(fa_top);
+		
+		var hit_text = string(floor(hit_chance)) + "%";
+		var text_y = drawy + 8;
+		draw_text_transformed(drawx,text_y,hit_text,.5,.5,0);
+		//draw_text(drawx,drawy + 10,string(hit_chance) + "%");
+		
+		// Draw stylized unit
+		var dux = 10 + i * 8, duy = dh - 30;
+		draw_sprite_ext(u.sprite_index,0,dux,duy,.5,.5,0,c_red,.75);
+	}
+	
+	// Draw actions
 	var actions = focused_unit.actions;
 	if (actions != noone and array_length(actions) > 0) {
 		draw_set_color(c_white);

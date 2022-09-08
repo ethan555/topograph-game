@@ -30,17 +30,8 @@ function get_path_if_idle() {
 	// If not moving, check if path is set
 	var moving = get_path_next_step();
 	if (!moving) {
-		finish_action(1);
-	}
-}
-
-function finish_action(energy_cost) {
-	energy -= energy_cost;
-	if (energy < 1) {
-		if (focused_unit == id) select_unit(noone);
-		state = U_DONE;
-	} else {
-		state = U_IDLE;
+		//finish_action(1);
+		finish_action();
 	}
 }
 
@@ -60,6 +51,23 @@ function finish_action(energy_cost) {
 //	}
 //	return false;
 //}
+
+function set_moving(destination_cell) {
+	//var cell = terrain_control.terrain.get_unsafe_cell(mouse_x, mouse_y);
+	//var cpos = terrain_control.terrain.snap(focused_unit.x, focused_unit.y);
+	var cpos = terrain_control.terrain.snap(x, y);
+	if (!destination_cell.equals(cpos) && ds_map_exists(pathfind_map, destination_cell)) {
+		change_state(U_MOVING);
+		set_path(destination_cell);
+		// ENSURE NO ONE ELSE CAN MOVE HERE
+		//path = terrain_control.terrain.get_path(x, y, mouse_x, mouse_y, mobility_type, mobility_cost);
+		//path_step = 0;
+		//ds_map_clear(pathfind_map);
+		//focused_unit = noone;
+		reset_none();
+	}
+}
+
 function move() {
 	// If path defined, follow
 	var moving = true;
@@ -76,6 +84,7 @@ function move() {
 		if (dummy_ref != noone) {
 			instance_destroy(dummy_ref);
 		}
-		finish_action(1);
+		//finish_action(1);
+		finish_action();
 	}
 }

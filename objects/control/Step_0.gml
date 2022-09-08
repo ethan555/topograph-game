@@ -63,17 +63,21 @@ if (turn_manager.current_faction.index == FACTION_PLAYER) {
 	}
 
 	if (mouse_check_button_pressed(mb_right)) {
-		if (!ds_map_empty(pathfind_map) && instance_exists(focused_unit) && focused_unit.state == U_IDLE) {
+		if (instance_exists(focused_unit) && focused_unit.state == U_IDLE) {
 			var cell = terrain_control.terrain.get_unsafe_cell(mouse_x, mouse_y);
-			var cpos = terrain_control.terrain.snap(focused_unit.x, focused_unit.y);
-			if (!cell.equals(cpos) && ds_map_exists(pathfind_map, cell)) {
-				set_path(focused_unit, cell);
-				// ENSURE NO ONE ELSE CAN MOVE HERE
-				//path = terrain_control.terrain.get_path(x, y, mouse_x, mouse_y, mobility_type, mobility_cost);
-				//path_step = 0;
-				ds_map_clear(pathfind_map);
-				//focused_unit = noone;
+			with (focused_unit) {
+				set_moving(cell);
 			}
+			//var cell = terrain_control.terrain.get_unsafe_cell(mouse_x, mouse_y);
+			//var cpos = terrain_control.terrain.snap(focused_unit.x, focused_unit.y);
+			//if (!cell.equals(cpos) && ds_map_exists(pathfind_map, cell)) {
+			//	set_path(focused_unit, cell);
+			//	// ENSURE NO ONE ELSE CAN MOVE HERE
+			//	//path = terrain_control.terrain.get_path(x, y, mouse_x, mouse_y, mobility_type, mobility_cost);
+			//	//path_step = 0;
+			//	ds_map_clear(pathfind_map);
+			//	//focused_unit = noone;
+			//}
 		}
 	}
 

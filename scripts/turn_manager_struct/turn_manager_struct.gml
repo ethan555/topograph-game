@@ -125,11 +125,11 @@ function turn_manager_struct() constructor {
 		var next_focus = faction_units[| unit_index];
 		unit_index = modulo(unit_index + 1, faction_unit_number);
 		// Ensure next focus is selectable
-		while (next_focus.state != U_IDLE and unit_index != current_index) {
+		while (next_focus.state == U_DONE and unit_index != current_index) {
 			next_focus = faction_units[| unit_index];
 			unit_index = modulo(unit_index + 1, faction_unit_number);
 		}
-		if (next_focus.state != U_IDLE) {
+		if (next_focus.state == U_DONE) {
 			next_focus = noone;
 		}
 		return next_focus;
@@ -189,14 +189,26 @@ function faction_struct(index_, color_, energy_) constructor {
 	energy = energy_;
 }
 
+function reset_unit() {
+	unit_get_path();
+	unit_get_targets();
+}
+
+function reset_none() {
+	ds_map_clear(pathfind_map);
+	ds_list_clear(target_units);
+}
+
 function select_unit(new_focus) {
 	if (focused_unit == new_focus) return;
 	focused_unit = new_focus;
-	ds_map_clear(pathfind_map);
-	if (focused_unit != noone) {
+	if (focused_unit != noone and focused_unit.state == U_IDLE) {
 		with (focused_unit) {
-			terrain_control.terrain.flood_fill(x,y,mobility_speed,mobility_type,mobility_cost);
-			path_drawn = false;
+			//terrain_control.terrain.flood_fill(x,y,mobility_speed,mobility_type,mobility_cost);
+			//path_drawn = false;
+			reset_unit();
 		}
+	} else {
+		reset_none();
 	}
 }

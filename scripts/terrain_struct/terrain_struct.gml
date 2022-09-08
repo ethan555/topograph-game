@@ -4,6 +4,9 @@ function vector2(x_, y_) constructor {
 	function equals(other_) {
 		return x == other_.x && y == other_.y;
 	}
+	function add(other_) {
+		return new vector2(x+other_.x, y+other_.y);
+	}
 }
 
 function cell_struct(x_, y_, height_, free_) : vector2(x_, y_) constructor {
@@ -13,6 +16,7 @@ function cell_struct(x_, y_, height_, free_) : vector2(x_, y_) constructor {
 	visited = false;
 	cost = 0;
 	heuristic_value = 0;
+	world_coords = new vector2(x_ * GRID_SCALE+GRID_SCALE/2, y_ * GRID_SCALE+GRID_SCALE/2);
 	
 	function get_vector() {
 		return new vector2(x, y);
@@ -274,10 +278,12 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	function build_path(path_, a, b) {
 		var pointer = b;
 		while(!pointer.equals(a)) {
-			ds_list_add(path_, vector2_to_world(pointer));
+			//ds_list_add(path_, vector2_to_world(pointer));
+			ds_list_add(path_, pointer.world_coords);
 			pointer = pointer.parent;
 		}
-		ds_list_add(path_, vector2_to_world(pointer));
+		//ds_list_add(path_, vector2_to_world(pointer));
+		ds_list_add(path_, pointer.world_coords);
 	}
 	function get_direction_cost(index) {
 		switch(pathfinding_type) {
@@ -409,7 +415,8 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 		var pointer = to_cell_;
 		var path_ = ds_list_create();
 		while(pointer != noone) {
-			ds_list_add(path_, vector2_to_world(pointer));
+			//ds_list_add(path_, vector2_to_world(pointer));
+			ds_list_add(path_, pointer.world_coords);
 			pointer = pointer.parent;
 		}
 		var path_array = list_to_array_reverse(path_);
@@ -419,7 +426,7 @@ function terrain_struct(x_, y_, width_, length_, height_, scale_) constructor {
 	function check_cell_empty(cell, mobility_type_) {
 		// Ensure cell is empty of units
 		var cell_empty = true;
-		var world_coords = vector2_to_world(cell);
+		var world_coords = cell.world_coords;
 		var solid_list = ds_list_create();
 		var solid_count = collision_point_list(
 			world_coords.x, world_coords.y, solid_parent,

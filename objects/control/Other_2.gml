@@ -16,7 +16,7 @@ if (monitorw <= 1920/2 && monitorh <= 1080/2) {
 	hmult = 1;
 }
 surface_resize(application_surface, monitorw / wmult, monitorh / hmult);
-display_set_gui_maximize();//monitorw / 2, monitorh / 2);
+display_set_gui_maximize(-1,-1);//monitorw / 2, monitorh / 2);
 //window_set_fullscreen(true);
 window_set_cursor(cr_none);
 cursor_sprite = cursor_sp;
